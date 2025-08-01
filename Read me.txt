@@ -1,0 +1,97 @@
+
+# MTG Art Card Inventory Script - README
+
+This script automates tracking and pricing of Magic: The Gathering art-series cards using Google Sheets and Scryfall API data.
+
+---
+
+## Setup Instructions
+
+1. Open Google Sheets and go to **Extensions → Apps Script**.
+2. Paste the full script (from MTG_Art_Card_Inventory_Script.txt) into the Apps Script editor.
+3. Save and run `fetchArtSeriesWithPrices()` to initialize data.
+4. Authorize the script when prompted.
+5. Sheets created:
+   - **Regular Art Cards**: All art cards with pricing
+   - **Signed Art Cards**: Same cards marked signed (no prices)
+   - **Collection Summary**: Totals by set and overall
+   - **Inventory Import**: Used for updating quantities and prices
+   - **Raw Import**: Paste bulk lists here for parsing
+   - **Mapping Helper**: Logs unmatched names for manual mapping
+
+6. Use the custom menu **Inventory Tools**:
+   - **Parse Raw Import**: Converts pasted lists into inventory updates
+   - **Update Inventory Quantities**: Applies updates from `Inventory Import` to the main sheet
+
+---
+
+## Function Overview
+
+### `fetchArtSeriesWithPrices()`
+- Calls Scryfall API to retrieve all art-series cards.
+- Populates **Regular Art Cards** sheet with set, number, name, artist, release date, and Scryfall ID.
+- Initializes pricing columns (blank initially) and formulas for total value.
+- Calls `duplicateToSignedSheetNoPricing()` and `updateCollectionSummary()`.
+
+### `duplicateToSignedSheetNoPricing()`
+- Copies Regular sheet to Signed sheet.
+- Marks entries as Signed and clears pricing fields.
+
+### `fetchPriceFromScryfall(cardID)`
+- Gets TCGPlayer pricing data for a single card via Scryfall API.
+- Returns low, average, and market USD values.
+
+### `updatePricesInBatches()`
+- Updates prices for Regular cards in **200-card batches** to prevent API overload.
+- Uses `fetchPriceFromScryfall()` for each ID.
+- Can be run manually or triggered with `startBatchTrigger()`.
+
+### `startBatchTrigger()`
+- Creates a time-based trigger to run `updatePricesInBatches()` every 5 minutes.
+- Continues until all cards are priced, then stops.
+
+### `parsePriceListToInventory()`
+- Reads bulk card list from **Raw Import** sheet.
+- Parses **quantities, names, and prices**.
+- Supports **fuzzy matching** (Levenshtein distance ≤3) and **manual mapping** via **Mapping Helper** sheet.
+- Gold-stamped cards automatically update **Signed Art Cards** quantities.
+- Regular cards populate **Inventory Import** for later application.
+
+### `updateQuantitiesFromImport()`
+- Reads `Inventory Import` sheet.
+- Updates quantities (and prices if provided) in **Regular Art Cards**.
+- Recalculates collection summary.
+
+### `updateCollectionSummary()`
+- Aggregates data from Regular and Signed sheets.
+- Summarizes total quantity and total market value by set and overall.
+
+### `onOpen()`
+- Adds custom menu **Inventory Tools** to Google Sheets for easy access.
+
+### Helper Functions
+- `normalizeName()` – cleans names by removing descriptors like “Anime” or parentheses.
+- `fuzzyMatch()` – finds closest matching card name using Levenshtein distance.
+
+---
+
+## Usage Workflow
+
+1. **Initialize data**: Run `fetchArtSeriesWithPrices()`
+2. **Fetch prices**: Run `startBatchTrigger()`
+3. **Import inventory**:
+   - Paste list into `Raw Import`
+   - Run `Parse Raw Import`
+   - Fix unmatched names in `Mapping Helper`
+   - Run `Parse Raw Import` again (if needed)
+4. **Update sheets**: Run `Update Inventory Quantities`
+5. **View totals**: Check `Collection Summary` for value/quantity overview
+
+---
+
+## Notes
+- Signed cards do **not** receive pricing (tracked as quantity only).
+- All pricing is from Scryfall (TCGPlayer USD values).
+- Mapping Helper saves custom mappings for future imports.
+- Basic lands appear in multiple sets; fuzzy matching ensures they are handled correctly.
+
